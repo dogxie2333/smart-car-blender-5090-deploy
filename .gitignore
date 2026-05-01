@@ -1,0 +1,7 @@
+__pycache__/
+*.blend1
+round_params_5090.json
+img*/
+*.log
+.DS_Store
+Thumbs.db
