@@ -30,6 +30,7 @@ SUPERSAMPLE_SCALE = 4
 # 宏定义：贴图与渲染清晰度设置。
 TEXTURE_INTERPOLATION = "Cubic"
 CYCLES_FILTER_WIDTH = 0.5
+RENDER_SAMPLES = 64
 USE_POST_SHARPEN = True
 UNSHARP_RADIUS = 0.7
 UNSHARP_PERCENT = 120
@@ -248,6 +249,8 @@ def prepare_render_scene() -> bpy.types.Scene:
         scene.view_settings.view_transform = "Standard"
     if scene.render.engine == "CYCLES":
         configure_cycles_device(scene)
+        # 固定训练渲染采样数，避免沿用 .blend 中较慢的高采样配置。
+        scene.cycles.samples = RENDER_SAMPLES
         scene.cycles.use_denoising = False
         if hasattr(scene.cycles, "filter_width"):
             scene.cycles.filter_width = CYCLES_FILTER_WIDTH
