@@ -19,7 +19,7 @@ TARGET_OBJECT_CANDIDATES = ("图片块", "广告图-上方")
 TARGET_MATERIAL_CANDIDATES = ("广告图-上方-纯图片", "material-cache-loong21")
 
 # 宏定义：训练轮数和要渲染的数据集编号。
-TRAINING_ROUNDS = 1
+TRAINING_ROUNDS = 100
 SELECTED_DIR_INDICES = (11, 13, 4, 5, 7, 10)
 
 # 宏定义：最终摄像头分辨率和超采样倍率。
@@ -176,6 +176,53 @@ def build_output_path(source_image_path: Path, round_index: int) -> Path:
     return output_path
 
 
+def configure_cycles_device(scene: bpy.types.Scene) -> None:
+    """
+    @brief 配置 Cycles 优先使用 NVIDIA GPU 渲染，避免服务器只跑 CPU。
+    @param scene 当前需要渲染的场景。
+    @return None
+    """
+    if scene.render.engine != "CYCLES":
+        return
+
+    cycles_addon = bpy.context.preferences.addons.get("cycles")
+    if cycles_addon is None:
+        print("未找到 Cycles 插件配置，保持当前渲染设备。")
+        return
+
+    cycles_preferences = cycles_addon.preferences
+
+    # 优先使用 OptiX；如果当前 Blender/驱动不支持，再回退到 CUDA。
+    selected_device_type = None
+    for device_type in ("OPTIX", "CUDA"):
+        try:
+            cycles_preferences.compute_device_type = device_type
+            cycles_preferences.get_devices()
+            gpu_devices = [
+                device
+                for device in cycles_preferences.devices
+                if device.type in {"OPTIX", "CUDA"} and "NVIDIA" in device.name.upper()
+            ]
+            if gpu_devices:
+                selected_device_type = device_type
+                break
+        except Exception as exc:
+            print(f"尝试启用 {device_type} 失败：{exc}")
+
+    if selected_device_type is None:
+        scene.cycles.device = "CPU"
+        print("未识别到可用 NVIDIA GPU，回退到 CPU 渲染。")
+        return
+
+    # 只打开 GPU，关闭 CPU，防止 CPU 拖慢 OptiX/CUDA 调度。
+    scene.cycles.device = "GPU"
+    for device in cycles_preferences.devices:
+        device.use = device.type in {"OPTIX", "CUDA"} and "NVIDIA" in device.name.upper()
+
+    enabled_devices = [device.name for device in cycles_preferences.devices if device.use]
+    print(f"Cycles 使用 {selected_device_type} GPU 渲染：{enabled_devices}")
+
+
 def prepare_render_scene() -> bpy.types.Scene:
     """
     @brief 准备固定渲染设置。
@@ -200,6 +247,7 @@ def prepare_render_scene() -> bpy.types.Scene:
     if hasattr(scene.view_settings, "view_transform"):
         scene.view_settings.view_transform = "Standard"
     if scene.render.engine == "CYCLES":
+        configure_cycles_device(scene)
         scene.cycles.use_denoising = False
         if hasattr(scene.cycles, "filter_width"):
             scene.cycles.filter_width = CYCLES_FILTER_WIDTH
