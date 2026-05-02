@@ -1,5 +1,6 @@
 import json
 import random
+import tarfile
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -10,6 +11,7 @@ PROJECT_ROOT = Path(bpy.data.filepath).resolve().parent
 SRC_ROOT = PROJECT_ROOT / "src"
 DATASET_ROOT = SRC_ROOT / "数据集图片"
 PARAMS_PATH = PROJECT_ROOT / "round_params_5090.json"
+ARCHIVE_ROOT = Path("/home") / "blender_img_archives"
 
 SCENE_NAME = "scene3"
 CAMERA_NAME = "Camera.s3"
@@ -175,6 +177,32 @@ def build_output_path(source_image_path: Path, round_index: int) -> Path:
     output_path = get_round_output_root(round_index) / relative_path.parent / f"{source_image_path.stem}.png"
     output_path.parent.mkdir(parents=True, exist_ok=True)
     return output_path
+
+
+def archive_round_output(round_index: int) -> Path:
+    """
+    @brief 将当前轮次的 imgN 文件夹压缩保存到 /home，降低误删输出目录的风险。
+    @param round_index 当前训练轮次，从 1 开始。
+    @return 生成的压缩包路径。
+    """
+    round_output_root = get_round_output_root(round_index)
+    if not round_output_root.exists():
+        raise ValueError(f"当前轮次输出目录不存在，无法打包：{round_output_root}")
+
+    ARCHIVE_ROOT.mkdir(parents=True, exist_ok=True)
+    archive_path = ARCHIVE_ROOT / f"{round_output_root.name}.tar.gz"
+    temporary_archive_path = Path(f"{archive_path}.tmp")
+
+    if temporary_archive_path.exists():
+        temporary_archive_path.unlink()
+
+    # 先写入临时文件，成功后再原子替换，避免中途崩溃留下损坏压缩包。
+    with tarfile.open(temporary_archive_path, "w:gz") as archive_file:
+        archive_file.add(round_output_root, arcname=round_output_root.name)
+
+    temporary_archive_path.replace(archive_path)
+    print(f"已打包当前轮次输出：{archive_path}")
+    return archive_path
 
 
 def configure_cycles_device(scene: bpy.types.Scene) -> None:
@@ -465,6 +493,8 @@ def main() -> None:
 
                     if image_index == 1 or image_index == len(source_images) or image_index % 25 == 0:
                         print(f"[{image_index}/{len(source_images)}] 渲染：{source_image_path} -> {output_path}")
+
+            archive_round_output(round_index)
     finally:
         image_texture_node.image = original_image
 
