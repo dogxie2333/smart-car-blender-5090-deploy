@@ -77,3 +77,24 @@ blender -b main.blend -P server_render_5090.py
 ```
 
 冒烟测试时可以加 `MAX_IMAGES_PER_DIR=1`，每个目录只渲染 1 张。
+
+## 提速参数
+
+默认速度优先：`SUPERSAMPLE_SCALE=2`、`RENDER_SAMPLES=16`。
+
+大批量训练集建议使用下面的组合，仍然输出 `640x480` 和同名 `.yuyv`：
+
+```bash
+SUPERSAMPLE_SCALE=2 \
+RENDER_SAMPLES=16 \
+ENABLE_ARCHIVE=0 \
+DATASET_ROOT=/root/autodl-tmp/smart-car-data/走马观碑数据集all \
+OUTPUT_ROOT=/root/autodl-tmp/smart-car-output \
+SELECTED_DIR_INDICES=all \
+TRAINING_ROUNDS=50 \
+blender -b main.blend -P server_render_5090.py
+```
+
+如果只想快速看训练链路，可以再加 `SAVE_YUYV_OUTPUT=0`，但正式训练 YUYV 输入流程建议保持开启。
+
+如果需要更高画质，可以临时改为 `SUPERSAMPLE_SCALE=4`、`RENDER_SAMPLES=64`，代价是单张渲染时间明显增加。
