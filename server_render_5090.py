@@ -32,20 +32,20 @@ SELECTED_DIR_INDICES = (11, 13, 4, 5, 7, 10)
 # 宏定义：最终摄像头分辨率和超采样倍率。
 FINAL_RESOLUTION_X = 640
 FINAL_RESOLUTION_Y = 480
-SUPERSAMPLE_SCALE = 4
+SUPERSAMPLE_SCALE = int(os.environ.get("SUPERSAMPLE_SCALE", "2"))
 
 # 宏定义：贴图与渲染清晰度设置。
 TEXTURE_INTERPOLATION = "Cubic"
-CYCLES_FILTER_WIDTH = 0.5
-RENDER_SAMPLES = 64
-SAVE_YUYV_OUTPUT = True
-USE_POST_SHARPEN = True
+CYCLES_FILTER_WIDTH = float(os.environ.get("CYCLES_FILTER_WIDTH", "0.5"))
+RENDER_SAMPLES = int(os.environ.get("RENDER_SAMPLES", "16"))
+SAVE_YUYV_OUTPUT = os.environ.get("SAVE_YUYV_OUTPUT", "1").strip().lower() not in {"0", "false", "no"}
+USE_POST_SHARPEN = os.environ.get("USE_POST_SHARPEN", "1").strip().lower() not in {"0", "false", "no"}
 UNSHARP_RADIUS = 0.7
 UNSHARP_PERCENT = 120
 UNSHARP_THRESHOLD = 2
 
 # 宏定义：匹配真实摄像头原图的室内色调。
-APPLY_CAMERA_TONE = True
+APPLY_CAMERA_TONE = os.environ.get("APPLY_CAMERA_TONE", "1").strip().lower() not in {"0", "false", "no"}
 CAMERA_TONE_TARGET_LUMA = 134.0
 CAMERA_TONE_BRIGHTNESS_MIN = 0.82
 CAMERA_TONE_BRIGHTNESS_MAX = 1.18
@@ -344,6 +344,9 @@ def prepare_render_scene() -> bpy.types.Scene:
     scene.render.resolution_x = FINAL_RESOLUTION_X * SUPERSAMPLE_SCALE
     scene.render.resolution_y = FINAL_RESOLUTION_Y * SUPERSAMPLE_SCALE
     scene.render.resolution_percentage = 100
+    if hasattr(scene.render, "use_persistent_data"):
+        # 连续批量渲染同一场景时复用可持久化数据，减少每张图重复初始化开销。
+        scene.render.use_persistent_data = True
 
     if hasattr(scene.render, "use_motion_blur"):
         scene.render.use_motion_blur = False
