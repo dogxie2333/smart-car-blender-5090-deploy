@@ -317,7 +317,7 @@ def configure_cycles_device(scene: bpy.types.Scene) -> None:
         print("未识别到可用 NVIDIA GPU，回退到 CPU 渲染。")
         return
 
-    # 只打开当前选中的 GPU 后端，关闭 CPU，防止 CPU拖慢 CUDA/OptiX 调度。
+    # 只打开当前选中的 GPU 后端，关闭 CPU，防止 CPU 拖慢 CUDA/OptiX 调度。
     scene.cycles.device = "GPU"
     for device in cycles_preferences.devices:
         device.use = device.type == selected_device_type and "NVIDIA" in device.name.upper()
